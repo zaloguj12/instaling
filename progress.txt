@@ -1,11 +1,11 @@
 === INSTALING BOT - PROJECT LOG ===
-Last updated: switched to single paste instead of per-character typing
+Last updated: full hint context sent to API, first word extracted from result
 
 --- WHAT THIS PROJECT DOES ---
 A Python bot for the Polish school vocab site instaling.pl.
 It reads a designated area of the screen using OCR, translates the
-detected Polish word to Spanish using the LibreTranslate free API,
-and pastes the full answer into a focused textbox in one shot with Ctrl+V.
+detected Polish word/hints to Spanish using the MyMemory free API,
+and pastes the first word of the result into a focused textbox with Ctrl+V.
 
 words.json is used as a cache only - it is never manually edited.
 Translations are fetched from the API and stored automatically.
@@ -22,40 +22,46 @@ progress.txt     - This file
 3. User presses ENTER again to set the bottom-right corner
 4. Script loops, waiting for ENTER each round
 5. Screenshots the region, runs OCR to extract text
-6. Validates the OCR output (see validation rules below)
-7. Checks words.json cache:
+6. Validates the raw OCR output
+7. Checks words.json cache using the full raw hint string as key:
    - CACHE HIT  -> uses cached translation immediately
-   - CACHE MISS -> calls LibreTranslate API (pl -> es), saves result to cache
-8. Waits 2 seconds, then pastes the full Spanish answer with Ctrl+V
+   - CACHE MISS -> normalizes hints, sends full context to MyMemory API,
+                   extracts first word from result, saves to cache
+8. Waits 2 seconds, then pastes the first Spanish word with Ctrl+V
 9. ESC exits the loop
 
---- HOW PASTING WORKS ---
-The full translation is copied to clipboard with pyperclip,
-then pasted into the focused textbox with Ctrl+V via pyautogui.
-This works for all characters including accented Spanish ones.
-Instaling does not detect paste vs typing so this works fine.
+--- WHY SEND FULL HINT STRING ---
+Instaling shows multiple hints separated by semicolons, e.g.:
+  "w; w srodku; wewnatrz; za"
+Sending only "w" to the API gives wrong results ("h") because
+single letters are ambiguous without context.
+Sending the full string "w, w srodku, wewnatrz, za" lets the API
+correctly identify the meaning as "en" (in/inside).
+The cache key is the full raw hint string so the same combination
+is never re-requested.
 
 --- OCR VALIDATION ---
-Before translating, the OCR result is checked for:
+The raw OCR output is validated before translation:
 - Empty or whitespace-only output           -> skip
-- Single character output (noise)           -> skip
 - Output containing digits                  -> skip
-- Output with less than 70% alpha chars     -> skip (OCR garbage)
-- Instaling UI strings like "Synonim"       -> skip
-- Output containing any ignored UI string   -> skip
+- Less than 50% alphabetic characters       -> skip (OCR garbage)
+- First hint is an Instaling UI string      -> skip
 
-IGNORED UI STRINGS (all lowercase, checked with .lower()):
+IGNORED UI STRINGS:
   synonim, synonym, przyklad, przyklady,
   definicja, definition, tlumaczenie, przetlumacz
 
-To add more ignored strings, edit the IGNORED_WORDS set in main.py.
+--- HOW PASTING WORKS ---
+The first word of the translation is copied to clipboard with pyperclip,
+then pasted into the focused textbox with Ctrl+V via pyautogui.
+Works for all characters including accented Spanish ones.
+Instaling does not detect paste vs typing so this works fine.
 
 --- TRANSLATION API ---
-Service: LibreTranslate (https://libretranslate.com)
-Free, no API key required for basic use.
-Endpoint: POST https://libretranslate.com/translate
-Payload:  q=<word>, source=pl, target=es, format=text
-Response: { "translatedText": "..." }
+Service: MyMemory (https://api.mymemory.translated.net)
+Free, no API key required.
+5000 words/day free limit - more than enough for Instaling sessions.
+Cached words are never re-requested.
 
 --- DEPENDENCIES ---
 - pytesseract    (OCR engine Python wrapper)
@@ -63,7 +69,7 @@ Response: { "translatedText": "..." }
 - pyautogui      (keyboard automation / hotkeys)
 - keyboard       (keypress detection)
 - pyperclip      (clipboard access for paste)
-- requests       (HTTP calls to LibreTranslate API)
+- requests       (HTTP calls to MyMemory API)
 - Tesseract-OCR  (installed at C:\Users\patri\AppData\Local\Programs\Tesseract-OCR)
 
 --- SETUP STEPS ---
@@ -80,10 +86,9 @@ Response: { "translatedText": "..." }
 --- KNOWN LIMITATIONS ---
 - OCR may still misread words if the region includes extra UI elements.
   Keep the region tight around just the word text.
-- LibreTranslate is a free public instance and may occasionally be
-  slow or rate-limited. Cached words are never re-requested.
-- Do not overwrite the clipboard between pressing ENTER and the paste
-  happening, as the answer is held in the clipboard for the 2 second delay.
+- MyMemory free tier allows 5000 words/day. Resets daily.
+  Cached words are never re-requested so this limit is rarely hit.
+- Do not overwrite the clipboard in the 2 second window before paste.
 
 --- TODO ---
 - Nothing pending

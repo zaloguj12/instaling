@@ -13,7 +13,6 @@ import keyboard
 # -----------------------------------------------
 CACHE_FILE = "words.json"
 PASTE_DELAY = 2  # seconds to wait before pasting so user can focus textbox
-LIBRETRANSLATE_URL = "https://libretranslate.com/translate"
 SOURCE_LANG = "pl"
 TARGET_LANG = "es"
 
@@ -40,6 +39,8 @@ IGNORED_WORDS = {
 # CACHE - load and save
 # words.json is used as a translation cache only.
 # It is never manually edited - the API fills it.
+# Cache key is the full raw hint string from OCR,
+# so "w; w srodku; wewnatrz; za" is cached as one entry.
 # -----------------------------------------------
 def load_cache(path):
     try:
@@ -53,61 +54,89 @@ def save_cache(path, cache):
         json.dump(cache, f, ensure_ascii=False, indent=4)
 
 # -----------------------------------------------
-# VALIDATE OCR OUTPUT
-# Returns (True, cleaned_word) or (False, reason)
+# PREPARE OCR TEXT FOR TRANSLATION
+# Keeps all hints but normalizes separators to
+# commas so the API gets full context.
+# "w; w srodku; wewnatrz; za" -> "w, w srodku, wewnatrz, za"
+# The API uses all hints together to pick the right
+# translation, then we take only the first result word.
 # -----------------------------------------------
-def validate_word(word):
-    word = word.strip().lower()
+def prepare_for_translation(text):
+    text = text.strip().lower()
+    # Replace semicolons, pipes, newlines with commas for the API
+    text = re.sub(r"[;|\n]+", ",", text)
+    # Collapse multiple commas/spaces
+    text = re.sub(r",\s*,", ",", text)
+    text = text.strip(" ,")
+    return text
+
+# -----------------------------------------------
+# VALIDATE OCR OUTPUT
+# Validates the raw OCR text before sending.
+# Returns (True, text) or (False, reason).
+# Single letter words like "w" (in) are valid Polish.
+# -----------------------------------------------
+def validate_word(text):
+    text = text.strip().lower()
 
     # Empty or whitespace only
-    if not word:
+    if not text:
         return False, "empty string"
 
-    # Too short to be a real word (single char, noise)
-    if len(word) < 2:
-        return False, f"too short: '{word}'"
-
     # Contains digits - likely OCR noise or a number
-    if any(c.isdigit() for c in word):
-        return False, f"contains digits: '{word}'"
+    if any(c.isdigit() for c in text):
+        return False, f"contains digits: '{text}'"
 
     # Mostly non-alphabetic characters - likely OCR garbage
-    alpha_ratio = sum(c.isalpha() for c in word) / len(word)
-    if alpha_ratio < 0.7:
-        return False, f"too many non-alpha characters: '{word}'"
+    alpha_chars = sum(c.isalpha() for c in text)
+    if len(text) > 0 and alpha_chars / len(text) < 0.5:
+        return False, f"too many non-alpha characters: '{text}'"
 
     # Instaling UI strings - not vocab words
-    if word in IGNORED_WORDS:
-        return False, f"ignored UI string: '{word}'"
+    text_first = re.split(r"[;,|\n]", text)[0].strip()
+    if text_first in IGNORED_WORDS:
+        return False, f"ignored UI string: '{text_first}'"
 
-    # Check if any ignored word is contained in the OCR result
-    # e.g. OCR reads "Synonim:" or "[ Synonim ]"
     for ignored in IGNORED_WORDS:
-        if ignored in word:
-            return False, f"contains ignored string '{ignored}': '{word}'"
+        if ignored in text_first:
+            return False, f"contains ignored string '{ignored}': '{text_first}'"
 
-    return True, word
+    return True, text
 
 # -----------------------------------------------
-# TRANSLATE via LibreTranslate API (free, no key)
+# EXTRACT FIRST WORD FROM TRANSLATION RESULT
+# API may return "in, inside, within, behind"
+# We only want the first word: "en"
 # -----------------------------------------------
-def translate(word):
+def extract_first_word(translation):
+    # Split on spaces, commas, semicolons and take first non-empty chunk
+    parts = re.split(r"[\s,;]+", translation.strip())
+    parts = [p.strip() for p in parts if p.strip()]
+    if parts:
+        return parts[0]
+    return translation.strip()
+
+# -----------------------------------------------
+# TRANSLATE via MyMemory API (free, no key needed)
+# Sends the full hint string for better context.
+# 5000 words/day free limit - plenty for Instaling.
+# -----------------------------------------------
+def translate(text):
     try:
-        response = requests.post(
-            LIBRETRANSLATE_URL,
-            data={
-                "q": word,
-                "source": SOURCE_LANG,
-                "target": TARGET_LANG,
-                "format": "text"
+        response = requests.get(
+            "https://api.mymemory.translated.net/get",
+            params={
+                "q": text,
+                "langpair": f"{SOURCE_LANG}|{TARGET_LANG}",
             },
             timeout=10
         )
         result = response.json()
-        if "translatedText" in result:
-            return result["translatedText"].strip().lower()
+        if result.get("responseStatus") == 200:
+            translated = result["responseData"]["translatedText"].strip().lower()
+            return translated
         else:
-            print(f"API error: {result}")
+            print(f"API error: {result.get('responseDetails', 'unknown error')}")
             return None
     except requests.exceptions.RequestException as e:
         print(f"Network error: {e}")
@@ -115,27 +144,36 @@ def translate(word):
 
 # -----------------------------------------------
 # LOOKUP - check cache first, then API
+# Cache key is the normalized full hint string.
 # -----------------------------------------------
-def lookup(word, cache):
-    word = word.strip().lower()
+def lookup(raw_text, cache):
+    key = raw_text.strip().lower()
 
     # Check cache first
-    if word in cache:
-        print(f"Cache hit: '{word}' -> '{cache[word]}'")
-        return cache[word]
+    if key in cache:
+        print(f"Cache hit: '{key}' -> '{cache[key]}'")
+        return cache[key]
 
-    # Not in cache - call API
-    print(f"Not in cache, calling LibreTranslate for '{word}'...")
-    translation = translate(word)
+    # Prepare full hint string for translation
+    query = prepare_for_translation(raw_text)
+    print(f"Sending to API: '{query}'")
 
-    if translation:
-        cache[word] = translation
-        save_cache(CACHE_FILE, cache)
-        print(f"Translated and cached: '{word}' -> '{translation}'")
-    else:
-        print(f"Could not translate '{word}'.")
+    full_translation = translate(query)
+    if not full_translation:
+        print(f"Could not translate '{query}'.")
+        return None
 
-    return translation
+    print(f"API returned: '{full_translation}'")
+
+    # Extract just the first word from the translation
+    first_word = extract_first_word(full_translation)
+    print(f"Using first word: '{first_word}'")
+
+    cache[key] = first_word
+    save_cache(CACHE_FILE, cache)
+    print(f"Cached: '{key}' -> '{first_word}'")
+
+    return first_word
 
 # -----------------------------------------------
 # REGION SELECTION
@@ -160,7 +198,6 @@ def get_screen_region():
 def read_text_from_region(region):
     screenshot = ImageGrab.grab(bbox=region)
     text = pytesseract.image_to_string(screenshot, lang="pol")
-    text = text.strip().lower()
     return text
 
 # -----------------------------------------------
@@ -168,7 +205,6 @@ def read_text_from_region(region):
 # Copies the full translation to clipboard and
 # pastes it in one shot with Ctrl+V.
 # Works with all characters including accented ones.
-# No per-character delay needed anymore.
 # -----------------------------------------------
 def paste_answer(answer):
     print(f"Pasting answer: '{answer}'")
@@ -203,17 +239,14 @@ def main():
             break
 
         raw = read_text_from_region(region)
-        print(f"OCR raw output: '{raw}'")
+        print(f"OCR raw output: '{raw.strip()}'")
 
-        valid, result = validate_word(raw)
+        valid, result = validate_word(raw.strip())
         if not valid:
             print(f"Skipping - {result}\n")
             continue
 
-        word = result
-        print(f"Word to translate: '{word}'")
-
-        translation = lookup(word, cache)
+        translation = lookup(result, cache)
 
         if translation:
             print(f"Pasting in {PASTE_DELAY} seconds. Make sure the textbox is focused...")
