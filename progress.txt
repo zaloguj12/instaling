@@ -1,0 +1,89 @@
+=== INSTALING BOT - PROJECT LOG ===
+Last updated: switched to single paste instead of per-character typing
+
+--- WHAT THIS PROJECT DOES ---
+A Python bot for the Polish school vocab site instaling.pl.
+It reads a designated area of the screen using OCR, translates the
+detected Polish word to Spanish using the LibreTranslate free API,
+and pastes the full answer into a focused textbox in one shot with Ctrl+V.
+
+words.json is used as a cache only - it is never manually edited.
+Translations are fetched from the API and stored automatically.
+
+--- FILES ---
+main.py          - The main bot script
+words.json       - Translation cache (auto-managed, do not edit manually)
+requirements.txt - Python dependencies
+progress.txt     - This file
+
+--- HOW IT WORKS ---
+1. Script loads words.json cache
+2. User presses ENTER to set the top-left corner of the screen region
+3. User presses ENTER again to set the bottom-right corner
+4. Script loops, waiting for ENTER each round
+5. Screenshots the region, runs OCR to extract text
+6. Validates the OCR output (see validation rules below)
+7. Checks words.json cache:
+   - CACHE HIT  -> uses cached translation immediately
+   - CACHE MISS -> calls LibreTranslate API (pl -> es), saves result to cache
+8. Waits 2 seconds, then pastes the full Spanish answer with Ctrl+V
+9. ESC exits the loop
+
+--- HOW PASTING WORKS ---
+The full translation is copied to clipboard with pyperclip,
+then pasted into the focused textbox with Ctrl+V via pyautogui.
+This works for all characters including accented Spanish ones.
+Instaling does not detect paste vs typing so this works fine.
+
+--- OCR VALIDATION ---
+Before translating, the OCR result is checked for:
+- Empty or whitespace-only output           -> skip
+- Single character output (noise)           -> skip
+- Output containing digits                  -> skip
+- Output with less than 70% alpha chars     -> skip (OCR garbage)
+- Instaling UI strings like "Synonim"       -> skip
+- Output containing any ignored UI string   -> skip
+
+IGNORED UI STRINGS (all lowercase, checked with .lower()):
+  synonim, synonym, przyklad, przyklady,
+  definicja, definition, tlumaczenie, przetlumacz
+
+To add more ignored strings, edit the IGNORED_WORDS set in main.py.
+
+--- TRANSLATION API ---
+Service: LibreTranslate (https://libretranslate.com)
+Free, no API key required for basic use.
+Endpoint: POST https://libretranslate.com/translate
+Payload:  q=<word>, source=pl, target=es, format=text
+Response: { "translatedText": "..." }
+
+--- DEPENDENCIES ---
+- pytesseract    (OCR engine Python wrapper)
+- Pillow         (screenshot / image handling)
+- pyautogui      (keyboard automation / hotkeys)
+- keyboard       (keypress detection)
+- pyperclip      (clipboard access for paste)
+- requests       (HTTP calls to LibreTranslate API)
+- Tesseract-OCR  (installed at C:\Users\patri\AppData\Local\Programs\Tesseract-OCR)
+
+--- SETUP STEPS ---
+1. Install Python packages:
+   pip install -r requirements.txt
+
+2. Tesseract is already installed at:
+   C:\Users\patri\AppData\Local\Programs\Tesseract-OCR\tesseract.exe
+   Path is hardcoded in main.py. Update if reinstalled elsewhere.
+
+3. Run the bot:
+   python main.py
+
+--- KNOWN LIMITATIONS ---
+- OCR may still misread words if the region includes extra UI elements.
+  Keep the region tight around just the word text.
+- LibreTranslate is a free public instance and may occasionally be
+  slow or rate-limited. Cached words are never re-requested.
+- Do not overwrite the clipboard between pressing ENTER and the paste
+  happening, as the answer is held in the clipboard for the 2 second delay.
+
+--- TODO ---
+- Nothing pending

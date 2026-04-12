@@ -1,0 +1,6 @@
+pytesseract
+Pillow
+pyautogui
+keyboard
+pyperclip
+requests

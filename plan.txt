@@ -1,0 +1,5 @@
+|this is a project for school
+
+have a python script see a x='designated area of the screen' defined by two cursor placements, first one is the top left corner, second is the bottom right, making a rectangle.
+x is a space where there will be text and it has to match for it in a JSON file and then it will check what translation is attached to that text,
+then it will input it into a textbox one character at a time with a delay of 0.8s, the textbox will have to be selected manually by the user so there will be no need for another placement
