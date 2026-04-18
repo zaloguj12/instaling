@@ -14,7 +14,7 @@ import keyboard
 CACHE_FILE = "words.json"
 PASTE_DELAY = 2  # seconds to wait before pasting so user can focus textbox
 SOURCE_LANG = "pl"
-TARGET_LANG = "es"
+TARGET_LANG = "de"
 
 # Tesseract path - installed for current user only
 pytesseract.pytesseract.tesseract_cmd = r"C:\Users\patri\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"
