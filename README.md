@@ -1,3 +1,6 @@
+# OTHER LANGUAGES ARE IN OTHER BRANCHES
+
+
 f12 console
 
 document.querySelectorAll("input, textarea").forEach(el => {
