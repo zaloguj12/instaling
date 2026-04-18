@@ -1,3 +1,9 @@
+# OTHER LANGUAGES ARE IN OTHER BRANCHES
+
+
+pip install -r requirements.txt
+
+
 f12 console
 
 document.querySelectorAll("input, textarea").forEach(el => {
