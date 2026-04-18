@@ -1,6 +1,9 @@
 # OTHER LANGUAGES ARE IN OTHER BRANCHES
 
 
+https://tesseract-ocr.github.io/tessdoc/#binaries get the binaries for your OS
+
+
 pip install -r requirements.txt
 
 
