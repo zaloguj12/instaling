@@ -9,7 +9,7 @@ https://tesseract-ocr.github.io/tessdoc/#binaries get the binaries for your OS
 pip install -r requirements.txt
 
 
-f12 console
+f12/ctrl+shift+i console
 
 document.querySelectorAll("input, textarea").forEach(el => {
     el.onpaste = null;
