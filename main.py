@@ -16,9 +16,6 @@ PASTE_DELAY = 2  # seconds to wait before pasting so user can focus textbox
 SOURCE_LANG = "pl"
 TARGET_LANG = "en"
 
-# Tesseract path - installed for current user only
-pytesseract.pytesseract.tesseract_cmd = r"C:\Users\patri\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"
-
 # -----------------------------------------------
 # WORDS TO IGNORE
 # These are Instaling UI strings, not vocab words.
