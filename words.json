@@ -32,7 +32,7 @@
     "wystawa": "die Ausstellung",
     "opowiadanie": "die Erzählung",
     "film animowany; film rysunkowy": "der Zeichentrickfilm",
-    "rezerwacja przez internet": "die Onlinereservierung",
+    "rezerwacja przez internet": "die Onlinebuchung",
     "wymieniać, zamieniać": "tauschen",
     "ciuchy": "die Klamotten",
     "produkt": "das Produkt",
@@ -51,5 +51,16 @@
     "otwarty": "geöffnet",
     "płacić kartą": "mit Karte zahlen",
     "sklep odzieżowy": "das Bekleidungsgeschäft",
-    "płacić": "bezahlen"
+    "płacić": "bezahlen",
+    "być ubranym": "angezogen sein",
+    "nosić": "tragen",
+    "być w modzie": "in sein",
+    "część ubioru": "das Kleidungsstück",
+    "obcas": "der Absatz",
+    "koszulka; podkoszulek": "das T-Shirt",
+    "garderoba, szatnia": "die Garderobe",
+    "spodnie": "die Hose",
+    "kapelusz": "der Hut",
+    "nowoczesny, nowocześnie": "modern",
+    "praktyczny": "praktisch"
 }
